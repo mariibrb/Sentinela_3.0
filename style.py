@@ -3,112 +3,82 @@ import streamlit as st
 def aplicar_estilo_sentinela():
     st.markdown("""
         <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
-
-        /* FUNDO E FONTE GLOBAL */
+        /* FONTE E FUNDO PROFISSIONAL */
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
+        
         .main {
-            background-color: #0f110c; /* Cinza quase preto militar */
-            font-family: 'JetBrains Mono', monospace;
+            background-color: #f4f4f2; /* Cinza claro neutro */
+            font-family: 'Roboto Mono', monospace;
         }
 
-        /* TÍTULO SENTINELA (Estilo Estêncil/Militar) */
+        /* TÍTULO IMPACTANTE MAS LIMPO */
         .titulo-principal {
-            font-size: 42px;
-            font-weight: 800;
-            color: #FF4B11;
-            letter-spacing: 5px;
-            text-transform: uppercase;
-            text-shadow: 2px 2px #000;
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a1a1a;
+            letter-spacing: 2px;
             margin-bottom: 0px;
         }
         .barra-laranja {
             height: 4px;
-            width: 150px;
+            width: 80px;
             background-color: #FF4B11;
             margin-bottom: 30px;
-            border: 1px solid #912a0a;
         }
 
-        /* SIDEBAR MILITAR */
+        /* SIDEBAR TÁTICA */
         section[data-testid="stSidebar"] {
-            background-color: #1a1d16 !important;
-            border-right: 2px solid #2d3326;
+            background-color: #262730 !important; /* Cinza escuro militar */
+        }
+        section[data-testid="stSidebar"] .stMarkdown, section[data-testid="stSidebar"] label {
+            color: #ffffff !important;
         }
 
-        /* FLAG RET - VERDE OPERACIONAL COM BORDINHA */
-        /* O switch agora parece um botão de painel de controle */
+        /* BOTÃO RET - VERDE COM BORDA (O QUE VOCÊ GOSTA) */
         div[data-testid="stWidgetLabel"] + div [aria-checked="true"] > div:first-child {
-            background-color: #3e5c3e !important; /* Verde Musgo */
-            border: 2px solid #b5ffb5 !important; /* Brilho verde */
-            box-shadow: 0 0 10px #28a745;
+            background-color: #28a745 !important;
+            border: 2px solid #1e7e34 !important;
         }
-        
-        /* ABAS (Estilo Pastas de Arquivo ou Abas de Radar) */
+
+        /* ABAS RETAS (ESTILO MILITAR) */
         .stTabs [data-baseweb="tab-list"] {
-            gap: 5px;
-            background-color: #1a1d16;
-            padding: 5px;
-            border: 1px solid #2d3326;
+            gap: 2px;
         }
         .stTabs [data-baseweb="tab"] {
-            height: 40px;
-            background-color: #24291e;
-            color: #7d8570 !important;
-            border: 1px solid #2d3326;
-            border-radius: 0px; /* Abas quadradas militares */
-            font-size: 12px;
-            text-transform: uppercase;
+            height: 45px;
+            background-color: #e0e0e0;
+            border-radius: 0px; /* Quadradas */
+            border: 1px solid #d0d0d0;
+            padding: 10px 20px;
+            color: #666;
         }
         .stTabs [aria-selected="true"] {
             background-color: #FF4B11 !important;
             color: white !important;
-            border: 1px solid #fff;
+            border: 1px solid #FF4B11;
         }
 
-        /* CAMPOS DE UPLOAD E INPUTS */
-        div[data-testid="stFileUploader"] {
-            border: 1px dashed #4e5741;
-            background-color: #141710;
-            padding: 10px;
-        }
-
-        /* BOTÃO DE EXECUÇÃO (ESTILO 'LAUNCH' / DISPARAR) */
+        /* BOTÃO DE EXECUÇÃO (ROBUSTO) */
         .stButton>button {
             width: 100%;
-            background-color: #FF4B11 !important;
-            color: white !important;
-            border: 2px solid #912a0a !important;
+            background-color: #1a1a1a !important;
+            color: #FF4B11 !important;
+            border: 2px solid #FF4B11 !important;
             border-radius: 0px !important;
             font-weight: bold;
+            height: 50px;
             text-transform: uppercase;
-            letter-spacing: 2px;
-            padding: 15px;
-            transition: 0.3s;
         }
         .stButton>button:hover {
-            background-color: #ff6a3d !important;
-            box-shadow: 0 0 15px #FF4B11;
+            background-color: #FF4B11 !important;
+            color: white !important;
         }
 
-        /* ALERTAS */
-        .stAlert {
-            background-color: #1a1d16;
-            color: #ffcc00;
-            border: 1px solid #ffcc00;
-            border-radius: 0px;
-        }
-
-        /* EFEITO DE LINHAS DE MONITOR (OPCIONAL) */
-        .main::before {
-            content: " ";
-            display: block;
-            position: fixed;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
-            z-index: 9999;
-            background-size: 100% 4px, 3px 100%;
-            pointer-events: none;
+        /* ENQUADRAMENTO DOS UPLOADS */
+        [data-testid="stFileUploader"] {
+            border: 1px solid #ccc;
+            background-color: white;
+            padding: 15px;
         }
         </style>
     """, unsafe_allow_html=True)
