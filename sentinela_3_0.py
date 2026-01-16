@@ -116,7 +116,7 @@ if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
         with sub_tab_difal:
             col_df1, col_df2 = st.columns(2)
             with col_df1:
-                rel_difal = st.file_uploader("Domínio: Relatório Difal", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+                rel_difal = st.file_uploader("Domínio: Apuração Difal", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
             with col_df2:
                 xml_difal = st.file_uploader("XML do Cliente (Base Difal)", type=['zip', 'xml'], accept_multiple_files=True)
 
@@ -132,7 +132,7 @@ if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
     st.markdown("---")
     if st.button("🚀 EXECUTAR PROCESSO DE FECHAMENTO", use_container_width=True):
         if xmls:
-            with st.spinner("Auditando..."):
+            with st.spinner("Auditando XML e Domínio..."):
                 try:
                     df_ent, df_sai = extrair_dados_xml_recursivo(xmls, dados_sel['CNPJ_S'])
                     relatorio = gerar_excel_final(
