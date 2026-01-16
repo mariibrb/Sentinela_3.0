@@ -75,23 +75,16 @@ if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
 
     # --- ABA 1: AUDITORIA XML ---
     with aba_mestre_xml:
-        st.markdown("#### Dados de Origem (Confronto XML vs Sistema do Cliente)")
-        col_xml1, col_xml2 = st.columns(2)
-        with col_xml1:
-            if 'reset_xml' not in st.session_state: st.session_state.reset_xml = 0
-            xmls = st.file_uploader("Upload XMLs/ZIP (Transmitido)", type=['zip', 'xml'], accept_multiple_files=True, key=f"xml_{st.session_state.reset_xml}")
-        with col_xml2:
-            ge_cli = st.file_uploader("Gerencial Entradas (Sistema Cliente)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-            gs_cli = st.file_uploader("Gerencial Saídas (Sistema Cliente)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-        
-        if xmls and st.button("🗑️ Limpar Arquivos de Origem"):
+        st.markdown("#### Dados de Origem (xml)")
+        if 'reset_xml' not in st.session_state: st.session_state.reset_xml = 0
+        xmls = st.file_uploader("Upload XMLs/ZIP (Transmitido)", type=['zip', 'xml'], accept_multiple_files=True, key=f"xml_{st.session_state.reset_xml}")
+        if xmls and st.button("🗑️ Limpar XMLs"):
             st.session_state.reset_xml += 1; st.rerun()
 
     # --- ABA 2: AUDITORIA DOMÍNIO ---
     with aba_mestre_dominio:
         st.markdown("#### Conformidade Domínio Sistemas")
         
-        # Ordem e nomes das abas conforme solicitado
         sub_tab_icms, sub_tab_ret, sub_tab_st, sub_tab_difal, sub_tab_pc = st.tabs([
             "🛡️ ICMS/IPI", "🏢 RET", "🔒 ST", "🚛 Difal", "💰 Pis e Cofins"
         ])
@@ -109,15 +102,23 @@ if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
                     gs_ret = st.file_uploader("Domínio: Gerencial Saídas (RET)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
                     ge_ret = st.file_uploader("Domínio: Gerencial Entradas (RET)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
             else:
-                st.warning("Módulo RET desativado no menu lateral.")
+                st.warning("Módulo RET desativado.")
                 rel_ret, gs_ret, ge_ret = None, None, None
 
         with sub_tab_st:
-            gs_st = st.file_uploader("Domínio: Gerencial Saídas (ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-            ge_st = st.file_uploader("Domínio: Gerencial Entradas (ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            col_st1, col_st2 = st.columns(2)
+            with col_st1:
+                rel_st = st.file_uploader("Domínio: Apuração ST", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            with col_st2:
+                gs_st = st.file_uploader("Domínio: Gerencial Saídas (ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+                ge_st = st.file_uploader("Domínio: Gerencial Entradas (ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
 
         with sub_tab_difal:
-            rel_difal = st.file_uploader("Domínio: Relatório Difal", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            col_df1, col_df2 = st.columns(2)
+            with col_df1:
+                rel_difal = st.file_uploader("Domínio: Relatório Difal", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            with col_df2:
+                xml_difal = st.file_uploader("XML do Cliente (Base Difal)", type=['zip', 'xml'], accept_multiple_files=True)
 
         with sub_tab_pc:
             c1, c2 = st.columns(2)
@@ -131,15 +132,15 @@ if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
     st.markdown("---")
     if st.button("🚀 EXECUTAR PROCESSO DE FECHAMENTO", use_container_width=True):
         if xmls:
-            with st.spinner("Auditando XML e Domínio..."):
+            with st.spinner("Auditando..."):
                 try:
                     df_ent, df_sai = extrair_dados_xml_recursivo(xmls, dados_sel['CNPJ_S'])
                     relatorio = gerar_excel_final(
-                        df_ent, df_sai, ge_cli, gs_cli,
+                        df_ent, df_sai,
                         gs_icms_ipi, ge_icms_ipi,
-                        gs_st, ge_st,
+                        rel_st, gs_st, ge_st,
                         rel_pc, gs_pc, ge_pc,
-                        rel_difal,
+                        rel_difal, xml_difal,
                         rel_ret, gs_ret, ge_ret,
                         cod_cliente, escolha_reg, is_ret, is_ipi
                     )
@@ -148,5 +149,3 @@ if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
                 except Exception as e: st.error(f"Erro: {e}")
         else:
             st.warning("⚠️ Carregue os XMLs na aba 'Auditoria XML' para começar.")
-else:
-    st.warning("Selecione a Empresa e o Regime para liberar as abas.")
