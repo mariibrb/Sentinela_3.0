@@ -1,82 +1,69 @@
 import streamlit as st
 
 def aplicar_estilo_sentinela():
-    """
-    Aplica a identidade visual Premium do Sentinela 3.0.
-    Cores: Laranja (#FF6F00) e Branco (#FFFFFF).
-    """
     st.markdown("""
-    <style>
-        /* 1. LIMPEZA DE INTERFACE: Remove menus e rodapés do Streamlit */
-        header {visibility: hidden !important;}
-        footer {visibility: hidden !important;}
-        #MainMenu {visibility: hidden !important;}
-        
-        /* 2. FUNDO DO APP */
-        .stApp { background-color: #F0F2F6; }
-
-        /* 3. SIDEBAR CUSTOMIZADA: Branca com borda direita laranja */
-        [data-testid="stSidebar"] {
-            background-color: #FFFFFF !important;
-            border-right: 4px solid #FF6F00;
+        <style>
+        /* Título e Barra Principal */
+        .titulo-principal {
+            font-size: 36px;
+            font-weight: bold;
+            color: #FF4B11;
+            margin-bottom: 0px;
         }
-
-        /* 4. BOTÕES PÍLULA (GRADIENTE): Para botões de ação e download */
-        div.stDownloadButton > button, 
-        div.stButton > button {
-            background: linear-gradient(135deg, #FF6F00 0%, #FF9100 100%) !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 50px !important;
-            padding: 0.8rem 2rem !important;
-            font-weight: 700 !important;
-            text-transform: uppercase !important;
-            letter-spacing: 1px !important;
-            box-shadow: 0 4px 15px rgba(255, 111, 0, 0.3) !important;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-            width: 100% !important;
-            cursor: pointer !important;
-        }
-
-        /* Efeito de hover nos botões (levanta e aumenta sombra) */
-        div.stDownloadButton > button:hover, 
-        div.stButton > button:hover {
-            transform: translateY(-3px) !important;
-            box-shadow: 0 8px 25px rgba(255, 111, 0, 0.4) !important;
-            color: #FFFFFF !important;
-        }
-
-        /* 5. TÍTULOS E ELEMENTOS VISUAIS */
-        .titulo-principal { 
-            color: #FF6F00; 
-            font-weight: 900; 
-            font-size: 2.5rem; 
-            margin-bottom: 5px;
-            letter-spacing: -1px;
-        }
-
         .barra-laranja {
-            height: 3px;
-            background: linear-gradient(to right, #FF6F00, #FF9100, transparent);
-            margin-bottom: 30px;
+            height: 5px;
+            width: 100px;
+            background-color: #FF4B11;
+            margin-bottom: 25px;
+            border-radius: 5px;
+        }
+        
+        /* FLAG DO MÓDULO RET: VERDE COM BORDINHA QUANDO ATIVO */
+        /* Estiliza o track do switch quando checkado */
+        div[data-testid="stWidgetLabel"] + div [aria-checked="true"] > div:first-child {
+            background-color: #28a745 !important;
+            border: 2px solid #1e7e34 !important;
+        }
+        
+        /* Estiliza a bolinha do switch quando checkado */
+        div[data-testid="stWidgetLabel"] + div [aria-checked="true"] [data-testid="stTooltipHoverTarget"] > div {
+            background-color: white !important;
+        }
+
+        /* Estilo das Abas Mestre e Sub-abas */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: 45px;
+            background-color: #f0f2f6;
+            border-radius: 5px 5px 0px 0px;
+            padding: 8px 16px;
+            font-weight: 600;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: #FF4B11 !important;
+            color: white !important;
+            border-bottom: 2px solid #FF4B11;
+        }
+
+        /* Container de Sucesso/Status */
+        .status-container {
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #e8f5e9;
+            border: 1px solid #28a745;
+            color: #1b5e20;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* Ajuste de inputs e botões para arredondar mais como solicitado anteriormente */
+        .stButton>button {
             border-radius: 10px;
         }
-        
-        /* 6. CONTAINERS DE STATUS (CARDS) */
-        .status-container {
-            padding: 20px;
-            border-left: 6px solid #FF6F00;
-            background-color: #FFFFFF;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-            margin-bottom: 25px;
-            color: #31333F;
+        .stTextInput>div>div>input {
+            border-radius: 8px;
         }
-
-        /* 7. CUSTOMIZAÇÃO DE INPUTS (OPCIONAL) */
-        .stTextInput > div > div > input {
-            border-radius: 10px !important;
-        }
-        
-    </style>
+        </style>
     """, unsafe_allow_html=True)
