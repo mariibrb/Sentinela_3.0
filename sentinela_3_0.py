@@ -14,7 +14,7 @@ except ImportError as e:
 st.set_page_config(page_title="Sentinela 3.0 | Central de Fechamento", page_icon="🧡", layout="wide")
 aplicar_estilo_sentinela()
 
-# 3. FUNÇÃO DE CARREGAMENTO (VOLTANDO AO QUE FUNCIONAVA)
+# 3. FUNÇÃO DE CARREGAMENTO (SIMPLES E FUNCIONAL)
 def carregar_clientes_ativos():
     caminho_lista = "Clientes Ativos.xlsx"
     if os.path.exists(caminho_lista):
@@ -26,7 +26,6 @@ def carregar_clientes_ativos():
             col_nome = next((c for c in df.columns if any(k in c for k in ['NOME', 'CLIENTE', 'RAZAO', 'EMPRESA']) and 'CIDADE' not in c), df.columns[1])
             col_cnpj = next((c for c in df.columns if 'CNPJ' in c), None)
 
-            # Criando colunas de exibição
             df['DISPLAY'] = df[col_cod].str.strip() + " - " + df[col_nome].str.strip()
             df['COD_S'] = df[col_cod].str.strip()
             df['CNPJ_S'] = df[col_cnpj].str.replace(r'\D', '', regex=True) if col_cnpj else ""
@@ -65,15 +64,13 @@ with st.sidebar:
         regime_ok = escolha_reg != "-- SELECIONE O REGIME --"
         
         if regime_ok:
-            # Botão de RET
+            # RETORNO DO TOGGLE (BOTAO DESLIZANTE) MAIS BONITO
             is_ret = st.toggle("Habilitar Módulo RET")
             
-            # NOVO FLAG DE IPI (Seleção Manual conforme solicitado)
             st.markdown("---")
             tipo_ipi = st.selectbox(
                 "A empresa é contribuinte de IPI?",
-                ["Não", "Sim - Industrial", "Sim - Equiparada"],
-                help="Selecione o tipo para liberar a auditoria de IPI."
+                ["Não", "Sim - Industrial", "Sim - Equiparada"]
             )
             is_ipi = tipo_ipi != "Não"
 
@@ -82,35 +79,55 @@ if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
     tab_xml, tab_dominio = st.tabs(["📂 1. Auditoria XML (Origem)", "🖥️ 2. Auditoria Domínio (Conferência)"])
     
     with tab_xml:
-        st.markdown("#### XMLs do Cliente")
+        st.markdown("#### XMLs enviados pelo Cliente")
         if 'reset_xml' not in st.session_state: st.session_state.reset_xml = 0
-        xmls = st.file_uploader("Upload XML/ZIP", type=['zip', 'xml'], accept_multiple_files=True, key=f"xml_{st.session_state.reset_xml}")
+        xmls = st.file_uploader("Upload XMLs ou ZIP", type=['zip', 'xml'], accept_multiple_files=True, key=f"xml_{st.session_state.reset_xml}")
         if xmls and st.button("🗑️ Limpar XMLs"):
             st.session_state.reset_xml += 1; st.rerun()
 
     with tab_dominio:
-        st.markdown("#### Relatórios da Domínio Sistemas")
-        col_g1, col_g2 = st.columns(2)
-        with col_g1:
-            st.markdown("**Básico (ICMS/IPI)**")
-            ge = st.file_uploader("Gerencial Entradas", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-            gs = st.file_uploader("Gerencial Saídas", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-        with col_g2:
-            st.markdown("**Específicos**")
-            rel_pc = st.file_uploader("Relatório PIS/COFINS", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-            rel_ret = st.file_uploader("Relatório RET", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True) if is_ret else None
+        st.markdown("#### Relatórios extraídos da Domínio Sistemas")
+        st.info("Suba os relatórios para conferência da conformidade do sistema.")
+        
+        col_d1, col_d2 = st.columns(2)
+        
+        with col_d1:
+            st.markdown("**🛡️ ICMS / IPI / ST**")
+            gs_icms_ipi = st.file_uploader("Gerencial Saídas (ICMS/IPI/ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            ge_icms_ipi = st.file_uploader("Gerencial Entradas (ICMS/IPI/ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            
+            st.markdown("---")
+            st.markdown("**🚛 DIFAL**")
+            rel_difal = st.file_uploader("Relatório de DIFAL (Domínio)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+
+        with col_d2:
+            st.markdown("**💰 PIS / COFINS**")
+            rel_pc = st.file_uploader("Relatório de PIS/COFINS (Domínio)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            
+            # APARECE SOMENTE SE O TOGGLE ESTIVER ATIVADO
+            if is_ret:
+                st.markdown("---")
+                st.markdown("**🏢 RET (Regime Especial)**")
+                rel_ret = st.file_uploader("Relatório de RET (Domínio)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            else:
+                rel_ret = None
 
     # 7. BOTÃO DE EXECUÇÃO
     st.markdown("---")
     if st.button("🚀 GERAR RELATÓRIO DE FECHAMENTO", use_container_width=True):
         if xmls:
-            with st.spinner("Comparando XML vs Domínio..."):
+            with st.spinner("Confrontando dados..."):
                 try:
                     df_ent, df_sai = extrair_dados_xml_recursivo(xmls, dados_sel['CNPJ_S'])
-                    relatorio = gerar_excel_final(df_ent, df_sai, ge, gs, rel_pc, rel_ret, cod_cliente, escolha_reg, is_ret, is_ipi)
-                    st.success("✅ Auditoria Concluída!")
-                    st.download_button("💾 BAIXAR RELATÓRIO", data=relatorio, file_name=f"SENTINELA_{cod_cliente}.xlsx", use_container_width=True)
-                except Exception as e: st.error(f"Erro no processamento: {e}")
+                    relatorio = gerar_excel_final(
+                        df_ent, df_sai, 
+                        gs_icms_ipi, ge_icms_ipi, 
+                        rel_pc, rel_difal, rel_ret, 
+                        cod_cliente, escolha_reg, is_ret, is_ipi
+                    )
+                    st.success("✅ Fechamento Concluído!")
+                    st.download_button(label="💾 BAIXAR RELATÓRIO", data=relatorio, file_name=f"SENTINELA_{cod_cliente}.xlsx", use_container_width=True)
+                except Exception as e: st.error(f"Erro: {e}")
         else: st.warning("⚠️ Carregue os XMLs.")
 else:
-    st.warning("Aguardando configurações no menu lateral...")
+    st.warning("Selecione a Empresa e o Regime para liberar os módulos.")
