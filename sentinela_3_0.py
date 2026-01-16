@@ -16,11 +16,10 @@ aplicar_estilo_sentinela()
 
 # 3. FUNÇÃO DE BUSCA ULTRA-RESISTENTE PARA O EXCEL DE CLIENTES
 def carregar_clientes_ativos():
-    # Lista todos os arquivos na pasta para não errar o nome
     arquivos_na_pasta = os.listdir('.')
-    
-    # Procura qualquer arquivo .xlsx que contenha "CLIENTE" e "ATIVO" no nome
     arquivo_alvo = None
+    
+    # Procura qualquer arquivo que contenha "CLIENTES" e "ATIVOS" no nome
     for f in arquivos_na_pasta:
         nome_normalizado = f.upper().replace(" ", "")
         if "CLIENTESATIVOS" in nome_normalizado and f.endswith('.xlsx'):
@@ -29,30 +28,36 @@ def carregar_clientes_ativos():
     
     if arquivo_alvo:
         try:
-            # Lê o arquivo forçando tudo como texto para não perder o CNPJ
-            df = pd.read_excel(arquivo_alvo, dtype=str)
+            # Lê o arquivo Excel
+            df = pd.read_excel(arquivo_alvo)
             
-            # Padroniza os nomes das colunas (tira espaços e põe em maiúsculo)
+            # Limpa e padroniza os nomes das colunas
             df.columns = [str(c).upper().strip() for c in df.columns]
 
-            # Identifica as colunas necessárias
+            # Identifica as colunas necessárias por palavras-chave
             col_cod = next((c for c in df.columns if any(k in c for k in ['COD', 'ID']) and 'CIDADE' not in c), df.columns[0])
             col_nome = next((c for c in df.columns if any(k in c for k in ['NOME', 'CLIENTE', 'RAZAO', 'EMPRESA']) and 'CIDADE' not in c), df.columns[1])
             col_cnpj = next((c for c in df.columns if 'CNPJ' in c), None)
             col_seg = next((c for c in df.columns if 'SEGMENTO' in c or 'ATIVIDADE' in c), None)
 
-            # Cria as colunas de trabalho do Sentinela
-            df['DISPLAY'] = df[col_cod].astype(str).str.strip() + " - " + df[col_nome].astype(str).str.strip()
-            df['COD_S'] = df[col_cod].astype(str).str.strip()
-            df['CNPJ_S'] = df[col_cnpj].str.replace(r'\D', '', regex=True) if col_cnpj else ""
-            df['SEG_S'] = df[col_seg].str.upper().strip() if col_seg else "NÃO INFORMADO"
+            # --- CORREÇÃO DO ERRO 'Series' object has no attribute 'strip' ---
+            # Convertemos cada coluna para string e removemos espaços com funções seguras
+            def limpar_texto(val):
+                return str(val).strip() if pd.notna(val) else ""
+
+            df['COD_S'] = df[col_cod].apply(limpar_texto)
+            df['NOME_S'] = df[col_nome].apply(limpar_texto)
+            df['CNPJ_S'] = df[col_cnpj].apply(limpar_texto).str.replace(r'\D', '', regex=True) if col_cnpj else ""
+            df['SEG_S'] = df[col_seg].apply(limpar_texto).upper() if col_seg else "NÃO INFORMADO"
+            
+            # Cria a coluna de exibição: "CÓDIGO - NOME"
+            df['DISPLAY'] = df['COD_S'] + " - " + df['NOME_S']
             
             return df[['DISPLAY', 'COD_S', 'CNPJ_S', 'SEG_S']]
         except Exception as e:
             st.error(f"Erro ao processar o conteúdo do arquivo: {e}")
             return pd.DataFrame()
     else:
-        # Se não achou o arquivo, avisa qual o nome exato ele deveria ter
         st.sidebar.error("❌ Arquivo 'Clientes Ativos.xlsx' não encontrado no GitHub.")
         return pd.DataFrame()
 
@@ -66,7 +71,7 @@ with st.sidebar:
     st.markdown("### ⚙️ Passo 1: Identificação")
     
     if df_clientes.empty:
-        st.warning("⚠️ A lista de empresas está vazia. Verifique o arquivo no GitHub.")
+        st.warning("⚠️ A lista de empresas está vazia.")
         escolha_emp = "-- SELECIONE UMA EMPRESA --"
     else:
         opcoes_emp = ["-- SELECIONE UMA EMPRESA --"] + df_clientes['DISPLAY'].unique().tolist()
@@ -118,12 +123,13 @@ if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
     st.markdown("---")
     if st.button("🚀 GERAR RELATÓRIO DE FECHAMENTO", use_container_width=True):
         if xmls:
-            with st.spinner("Processando..."):
+            with st.spinner("Comparando XML vs Domínio..."):
                 try:
                     df_ent, df_sai = extrair_dados_xml_recursivo(xmls, dados_sel['CNPJ_S'])
                     relatorio = gerar_excel_final(df_ent, df_sai, ge, gs, rel_pc, rel_ret, cod_cliente, escolha_reg, is_ret, is_ipi)
-                    st.success("✅ Concluído!")
+                    st.success("✅ Auditoria Concluída!")
                     st.download_button("💾 BAIXAR RELATÓRIO", data=relatorio, file_name=f"SENTINELA_{cod_cliente}.xlsx", use_container_width=True)
-                except Exception as e: st.error(f"Erro: {e}")
+                except Exception as e: st.error(f"Erro no processamento: {e}")
+        else: st.warning("⚠️ Carregue os XMLs.")
 else:
     st.warning("Aguardando configurações laterais...")
