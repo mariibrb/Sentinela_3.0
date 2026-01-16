@@ -14,76 +14,49 @@ except ImportError as e:
 st.set_page_config(page_title="Sentinela 3.0 | Central de Fechamento", page_icon="🧡", layout="wide")
 aplicar_estilo_sentinela()
 
-# 3. FUNÇÃO DE BUSCA ULTRA-RESISTENTE PARA O EXCEL DE CLIENTES
+# 3. FUNÇÃO DE CARREGAMENTO (VOLTANDO AO QUE FUNCIONAVA)
 def carregar_clientes_ativos():
-    arquivos_na_pasta = os.listdir('.')
-    arquivo_alvo = None
-    
-    # Procura qualquer arquivo que contenha "CLIENTES" e "ATIVOS" no nome
-    for f in arquivos_na_pasta:
-        nome_normalizado = f.upper().replace(" ", "")
-        if "CLIENTESATIVOS" in nome_normalizado and f.endswith('.xlsx'):
-            arquivo_alvo = f
-            break
-    
-    if arquivo_alvo:
+    caminho_lista = "Clientes Ativos.xlsx"
+    if os.path.exists(caminho_lista):
         try:
-            # Lê o arquivo Excel
-            df = pd.read_excel(arquivo_alvo)
-            
-            # Limpa e padroniza os nomes das colunas
+            df = pd.read_excel(caminho_lista, dtype=str)
             df.columns = [str(c).upper().strip() for c in df.columns]
 
-            # Identifica as colunas necessárias por palavras-chave
             col_cod = next((c for c in df.columns if any(k in c for k in ['COD', 'ID']) and 'CIDADE' not in c), df.columns[0])
             col_nome = next((c for c in df.columns if any(k in c for k in ['NOME', 'CLIENTE', 'RAZAO', 'EMPRESA']) and 'CIDADE' not in c), df.columns[1])
             col_cnpj = next((c for c in df.columns if 'CNPJ' in c), None)
-            col_seg = next((c for c in df.columns if 'SEGMENTO' in c or 'ATIVIDADE' in c), None)
 
-            # --- CORREÇÃO DO ERRO 'Series' object has no attribute 'strip' ---
-            # Convertemos cada coluna para string e removemos espaços com funções seguras
-            def limpar_texto(val):
-                return str(val).strip() if pd.notna(val) else ""
-
-            df['COD_S'] = df[col_cod].apply(limpar_texto)
-            df['NOME_S'] = df[col_nome].apply(limpar_texto)
-            df['CNPJ_S'] = df[col_cnpj].apply(limpar_texto).str.replace(r'\D', '', regex=True) if col_cnpj else ""
-            df['SEG_S'] = df[col_seg].apply(limpar_texto).upper() if col_seg else "NÃO INFORMADO"
+            # Criando colunas de exibição
+            df['DISPLAY'] = df[col_cod].str.strip() + " - " + df[col_nome].str.strip()
+            df['COD_S'] = df[col_cod].str.strip()
+            df['CNPJ_S'] = df[col_cnpj].str.replace(r'\D', '', regex=True) if col_cnpj else ""
             
-            # Cria a coluna de exibição: "CÓDIGO - NOME"
-            df['DISPLAY'] = df['COD_S'] + " - " + df['NOME_S']
-            
-            return df[['DISPLAY', 'COD_S', 'CNPJ_S', 'SEG_S']]
+            return df[['DISPLAY', 'COD_S', 'CNPJ_S']]
         except Exception as e:
-            st.error(f"Erro ao processar o conteúdo do arquivo: {e}")
+            st.error(f"Erro ao ler o arquivo: {e}")
             return pd.DataFrame()
-    else:
-        st.sidebar.error("❌ Arquivo 'Clientes Ativos.xlsx' não encontrado no GitHub.")
-        return pd.DataFrame()
+    return pd.DataFrame()
 
 df_clientes = carregar_clientes_ativos()
 
 # 4. CABEÇALHO
 st.markdown("<div class='titulo-principal'>SENTINELA 3.0</div><div class='barra-laranja'></div>", unsafe_allow_html=True)
 
-# 5. PAINEL LATERAL
+# 5. PAINEL LATERAL (CONFIGURAÇÕES)
 with st.sidebar:
     st.markdown("### ⚙️ Passo 1: Identificação")
     
-    if df_clientes.empty:
-        st.warning("⚠️ A lista de empresas está vazia.")
-        escolha_emp = "-- SELECIONE UMA EMPRESA --"
-    else:
-        opcoes_emp = ["-- SELECIONE UMA EMPRESA --"] + df_clientes['DISPLAY'].unique().tolist()
-        escolha_emp = st.selectbox("Selecione a Empresa", options=opcoes_emp)
+    opcoes_emp = ["-- SELECIONE UMA EMPRESA --"]
+    if not df_clientes.empty:
+        opcoes_emp.extend(df_clientes['DISPLAY'].unique().tolist())
     
+    escolha_emp = st.selectbox("Selecione a Empresa", options=opcoes_emp)
     empresa_ok = escolha_emp != "-- SELECIONE UMA EMPRESA --"
 
     if empresa_ok:
         dados_sel = df_clientes[df_clientes['DISPLAY'] == escolha_emp].iloc[0]
         cod_cliente = dados_sel['COD_S']
         st.text_input("CNPJ", value=dados_sel['CNPJ_S'], disabled=True)
-        st.markdown(f"**Segmento:** `{dados_sel['SEG_S']}`")
         
         st.markdown("---")
         st.markdown("### ⚖️ Passo 2: Regras Fiscais")
@@ -92,11 +65,19 @@ with st.sidebar:
         regime_ok = escolha_reg != "-- SELECIONE O REGIME --"
         
         if regime_ok:
+            # Botão de RET
             is_ret = st.toggle("Habilitar Módulo RET")
-            tipo_ipi = st.selectbox("Contribuinte de IPI?", ["Não", "Sim - Industrial", "Sim - Equiparada"])
+            
+            # NOVO FLAG DE IPI (Seleção Manual conforme solicitado)
+            st.markdown("---")
+            tipo_ipi = st.selectbox(
+                "A empresa é contribuinte de IPI?",
+                ["Não", "Sim - Industrial", "Sim - Equiparada"],
+                help="Selecione o tipo para liberar a auditoria de IPI."
+            )
             is_ipi = tipo_ipi != "Não"
 
-# 6. CORPO DA PÁGINA (ABAS)
+# 6. CORPO DA PÁGINA (ABAS DE TRABALHO)
 if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
     tab_xml, tab_dominio = st.tabs(["📂 1. Auditoria XML (Origem)", "🖥️ 2. Auditoria Domínio (Conferência)"])
     
@@ -132,4 +113,4 @@ if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
                 except Exception as e: st.error(f"Erro no processamento: {e}")
         else: st.warning("⚠️ Carregue os XMLs.")
 else:
-    st.warning("Aguardando configurações laterais...")
+    st.warning("Aguardando configurações no menu lateral...")
