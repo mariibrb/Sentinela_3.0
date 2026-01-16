@@ -14,7 +14,7 @@ except ImportError as e:
 st.set_page_config(page_title="Sentinela 3.0 | Central de Fechamento", page_icon="🧡", layout="wide")
 aplicar_estilo_sentinela()
 
-# 3. FUNÇÃO DE CARREGAMENTO ORIGINAL (RESTAURADA - A QUE FUNCIONAVA)
+# 3. FUNÇÃO DE CARREGAMENTO ORIGINAL
 def carregar_clientes_ativos():
     caminho_lista = "Clientes Ativos.xlsx"
     if os.path.exists(caminho_lista):
@@ -26,7 +26,6 @@ def carregar_clientes_ativos():
             col_nome = next((c for c in df.columns if any(k in c for k in ['NOME', 'CLIENTE', 'RAZAO', 'EMPRESA']) and 'CIDADE' not in c), df.columns[1])
             col_cnpj = next((c for c in df.columns if 'CNPJ' in c), None)
 
-            # Criando colunas de exibição como era antes
             df['DISPLAY'] = df[col_cod].str.strip() + " - " + df[col_nome].str.strip()
             df['COD_S'] = df[col_cod].str.strip()
             df['CNPJ_S'] = df[col_cnpj].str.replace(r'\D', '', regex=True) if col_cnpj else ""
@@ -42,10 +41,9 @@ df_clientes = carregar_clientes_ativos()
 # 4. CABEÇALHO
 st.markdown("<div class='titulo-principal'>SENTINELA 3.0</div><div class='barra-laranja'></div>", unsafe_allow_html=True)
 
-# 5. PAINEL LATERAL (CONFIGURAÇÕES)
+# 5. PAINEL LATERAL
 with st.sidebar:
     st.markdown("### ⚙️ Passo 1: Identificação")
-    
     opcoes_emp = ["-- SELECIONE UMA EMPRESA --"]
     if not df_clientes.empty:
         opcoes_emp.extend(df_clientes['DISPLAY'].unique().tolist())
@@ -67,18 +65,17 @@ with st.sidebar:
         if regime_ok:
             is_ret = st.toggle("Habilitar Módulo RET")
             st.markdown("---")
-            tipo_ipi = st.selectbox(
-                "A empresa é contribuinte de IPI?",
-                ["Não", "Sim - Industrial", "Sim - Equiparada"]
-            )
+            tipo_ipi = st.selectbox("Contribuinte de IPI?", ["Não", "Sim - Industrial", "Sim - Equiparada"])
             is_ipi = tipo_ipi != "Não"
 
-# 6. CORPO DA PÁGINA - DIVISÃO ORIGEM VS DOMÍNIO
+# 6. CORPO DA PÁGINA - SEPARAÇÃO POR ABAS MESTRE
 if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
     
-    # BLOCO 1: ORIGEM (XML + GERENCIAIS DO CLIENTE)
-    st.markdown("### 🔍 BLOCO 1: ORIGEM (Consultoria Cliente)")
-    with st.expander("📂 UPLOAD DOS DADOS DE ORIGEM (XML vs SISTEMA DO CLIENTE)", expanded=True):
+    aba_mestre_xml, aba_mestre_dominio = st.tabs(["🔍 Auditoria XML", "🖥️ Auditoria Domínio"])
+
+    # --- ABA 1: AUDITORIA XML ---
+    with aba_mestre_xml:
+        st.markdown("#### Dados de Origem (Confronto XML vs Sistema do Cliente)")
         col_xml1, col_xml2 = st.columns(2)
         with col_xml1:
             if 'reset_xml' not in st.session_state: st.session_state.reset_xml = 0
@@ -86,68 +83,70 @@ if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
         with col_xml2:
             ge_cli = st.file_uploader("Gerencial Entradas (Sistema Cliente)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
             gs_cli = st.file_uploader("Gerencial Saídas (Sistema Cliente)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+        
         if xmls and st.button("🗑️ Limpar Arquivos de Origem"):
             st.session_state.reset_xml += 1; st.rerun()
 
+    # --- ABA 2: AUDITORIA DOMÍNIO ---
+    with aba_mestre_dominio:
+        st.markdown("#### Conformidade Domínio Sistemas")
+        
+        # Ordem e nomes das abas conforme solicitado
+        sub_tab_icms, sub_tab_ret, sub_tab_st, sub_tab_difal, sub_tab_pc = st.tabs([
+            "🛡️ ICMS/IPI", "🏢 RET", "🔒 ST", "🚛 Difal", "💰 Pis e Cofins"
+        ])
+        
+        with sub_tab_icms:
+            gs_icms_ipi = st.file_uploader("Domínio: Gerencial Saídas (ICMS/IPI)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            ge_icms_ipi = st.file_uploader("Domínio: Gerencial Entradas (ICMS/IPI)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+
+        with sub_tab_ret:
+            if is_ret:
+                cr1, cr2 = st.columns(2)
+                with cr1:
+                    rel_ret = st.file_uploader("Domínio: Apuração RET", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+                with cr2:
+                    gs_ret = st.file_uploader("Domínio: Gerencial Saídas (RET)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+                    ge_ret = st.file_uploader("Domínio: Gerencial Entradas (RET)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            else:
+                st.warning("Módulo RET desativado no menu lateral.")
+                rel_ret, gs_ret, ge_ret = None, None, None
+
+        with sub_tab_st:
+            gs_st = st.file_uploader("Domínio: Gerencial Saídas (ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            ge_st = st.file_uploader("Domínio: Gerencial Entradas (ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+
+        with sub_tab_difal:
+            rel_difal = st.file_uploader("Domínio: Relatório Difal", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+
+        with sub_tab_pc:
+            c1, c2 = st.columns(2)
+            with c1:
+                rel_pc = st.file_uploader("Domínio: Apuração PIS/COFINS", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            with c2:
+                gs_pc = st.file_uploader("Domínio: Gerencial Saídas (PIS/COFINS)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+                ge_pc = st.file_uploader("Domínio: Gerencial Entradas (PIS/COFINS)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+
+    # 7. BOTÃO DE EXECUÇÃO
     st.markdown("---")
-    
-    # BLOCO 2: CONFORMIDADE (DOMÍNIO)
-    st.markdown("### 🖥️ BLOCO 2: CONFORMIDADE (Conferência Domínio Sistemas)")
-    
-    # Ordem das abas ajustada
-    tab_icms_ipi, tab_st, tab_pc, tab_difal, tab_ret = st.tabs([
-        "🛡️ ICMS / IPI", "🔒 ST", "💰 PIS / COFINS", "🚛 DIFAL", "🏢 RET"
-    ])
-    
-    with tab_icms_ipi:
-        gs_icms_ipi = st.file_uploader("Domínio: Gerencial Saídas (ICMS/IPI)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-        ge_icms_ipi = st.file_uploader("Domínio: Gerencial Entradas (ICMS/IPI)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-
-    with tab_st:
-        gs_st = st.file_uploader("Domínio: Gerencial Saídas (ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-        ge_st = st.file_uploader("Domínio: Gerencial Entradas (ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-
-    with tab_pc:
-        col_pc1, col_pc2 = st.columns(2)
-        with col_pc1:
-            rel_pc = st.file_uploader("Domínio: Relatório de Apuração PIS/COFINS", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-        with col_pc2:
-            gs_pc = st.file_uploader("Domínio: Gerencial Saídas (PIS/COFINS)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-            ge_pc = st.file_uploader("Domínio: Gerencial Entradas (PIS/COFINS)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-
-    with tab_difal:
-        rel_difal = st.file_uploader("Domínio: Relatório DIFAL", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-
-    with tab_ret:
-        if is_ret:
-            col_ret1, col_ret2 = st.columns(2)
-            with col_ret1:
-                rel_ret = st.file_uploader("Domínio: Relatório Apuração RET", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-            with col_ret2:
-                gs_ret = st.file_uploader("Domínio: Gerencial Saídas (RET)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-                ge_ret = st.file_uploader("Domínio: Gerencial Entradas (RET)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-        else:
-            st.warning("Habilite o Módulo RET no menu lateral.")
-            rel_ret, gs_ret, ge_ret = None, None, None
-
-    # 7. EXECUÇÃO
-    st.markdown("---")
-    if st.button("🚀 EXECUTAR FECHAMENTO COMPLETO", use_container_width=True):
+    if st.button("🚀 EXECUTAR PROCESSO DE FECHAMENTO", use_container_width=True):
         if xmls:
-            with st.spinner("Auditando..."):
+            with st.spinner("Auditando XML e Domínio..."):
                 try:
                     df_ent, df_sai = extrair_dados_xml_recursivo(xmls, dados_sel['CNPJ_S'])
                     relatorio = gerar_excel_final(
-                        df_ent, df_sai, ge_cli, gs_cli,           # Origem
-                        gs_icms_ipi, ge_icms_ipi,               # ICMS/IPI
-                        gs_st, ge_st,                           # ST
-                        rel_pc, gs_pc, ge_pc,                   # PIS/COFINS
-                        rel_difal,                              # DIFAL
-                        rel_ret, gs_ret, ge_ret,                # RET
+                        df_ent, df_sai, ge_cli, gs_cli,
+                        gs_icms_ipi, ge_icms_ipi,
+                        gs_st, ge_st,
+                        rel_pc, gs_pc, ge_pc,
+                        rel_difal,
+                        rel_ret, gs_ret, ge_ret,
                         cod_cliente, escolha_reg, is_ret, is_ipi
                     )
-                    st.success("✅ Relatório gerado!")
+                    st.success("✅ Fechamento concluído!")
                     st.download_button("💾 BAIXAR SENTINELA", data=relatorio, file_name=f"SENTINELA_{cod_cliente}.xlsx", use_container_width=True)
                 except Exception as e: st.error(f"Erro: {e}")
         else:
-            st.warning("⚠️ O Bloco 1 (XML) é obrigatório.")
+            st.warning("⚠️ Carregue os XMLs na aba 'Auditoria XML' para começar.")
+else:
+    st.warning("Selecione a Empresa e o Regime para liberar as abas.")
