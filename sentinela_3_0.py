@@ -52,14 +52,12 @@ st.markdown("<div class='titulo-principal'>SENTINELA 3.0</div><div class='barra-
 with st.sidebar:
     st.markdown("### ⚙️ Configurações da Auditoria")
     
-    # --- PASSO 1: SELEÇÃO DA EMPRESA ---
     opcoes_emp = ["-- SELECIONE UMA EMPRESA --"]
     if not df_empresas.empty:
         opcoes_emp.extend(df_empresas['DISPLAY'].unique().tolist())
     
     escolha_emp = st.selectbox("1. Empresa", options=opcoes_emp)
 
-    # Variáveis de controle de fluxo
     empresa_ok = escolha_emp != "-- SELECIONE UMA EMPRESA --"
     regime_ok = False
     cod_cliente = None
@@ -74,7 +72,6 @@ with st.sidebar:
         
         st.text_input("2. CNPJ da Empresa", value=cnpj_sugerido, disabled=True)
         
-        # --- PASSO 2: SELEÇÃO DO REGIME (OBRIGATÓRIO) ---
         opcoes_reg = ["-- SELECIONE O REGIME --", "Lucro Real", "Lucro Presumido", "Simples Nacional"]
         escolha_reg = st.selectbox("3. Regime Fiscal", options=opcoes_reg)
         
@@ -88,13 +85,28 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Sentinela Fiscal v3.0")
 
-# 6. ÁREA DE UPLOAD (Só aparece se Empresa E Regime forem selecionados)
+# 6. ÁREA DE UPLOAD (Habilitada apenas se Empresa e Regime estiverem OK)
 if empresa_ok and regime_ok:
     col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("### 📥 Arquivos XML")
-        xmls = st.file_uploader("Upload de XMLs ou ZIP", type=['zip', 'xml'], accept_multiple_files=True)
+        
+        # Gerenciamento de estado para limpar arquivos sem atualizar a página
+        if 'carregador_xml' not in st.session_state:
+            st.session_state.carregador_xml = 0
+            
+        xmls = st.file_uploader(
+            "Upload de XMLs ou ZIP", 
+            type=['zip', 'xml'], 
+            accept_multiple_files=True,
+            key=f"uploader_{st.session_state.carregador_xml}"
+        )
+        
+        if xmls:
+            if st.button("🗑️ Limpar Todos os XMLs"):
+                st.session_state.carregador_xml += 1
+                st.rerun()
 
     with col2:
         st.markdown("### 📑 Arquivos Auxiliares (Opcional)")
@@ -102,7 +114,8 @@ if empresa_ok and regime_ok:
         gs = st.file_uploader("Gerencial Saídas (CSV/TXT)", type=['csv', 'txt'], accept_multiple_files=True)
 
     # 7. BOTÃO DE EXECUÇÃO
-    if st.button("🚀 INICIAR AUDITORIA COMPLETA"):
+    st.markdown("---")
+    if st.button("🚀 INICIAR AUDITORIA COMPLETA", use_container_width=True):
         if xmls:
             with st.spinner("Auditando..."):
                 try:
@@ -118,5 +131,4 @@ if empresa_ok and regime_ok:
         else:
             st.warning("⚠️ Carregue os XMLs antes de iniciar.")
 else:
-    # Mensagem de orientação no corpo da página
     st.warning("Aguardando preenchimento das configurações (Empresa e Regime) no menu lateral.")
