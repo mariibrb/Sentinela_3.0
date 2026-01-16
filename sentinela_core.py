@@ -1,71 +1,65 @@
 import pandas as pd
-import io, zipfile, xml.etree.ElementTree as ET, re, os, openpyxl
-import streamlit as st
-from datetime import datetime
-from copy import copy
+import os
 
-# Conecta o motor com as suas pastas de Auditoria
-from Auditorias.audit_difal import processar_difal
-# Adicione os outros aqui conforme for criando os arquivos nas pastas
+# --- CONFIGURAÇÃO DA ABA ---
+NOME_ABA = 'ICMS_AUDIT'
+COLUNAS_ANALISE = ['ICMS_CST_ESPERADA', 'ICMS_ALQ_ESPERADA', 'ICMS_DIAG_CST', 'ICMS_DIAG_VALOR', 'ICMS_STATUS_BASE', 'ICMS_VALOR_COMPLEMENTAR', 'ICMS_FUNDAMENTAÇÃO']
 
-def safe_float(v):
-    if v is None or pd.isna(v): return 0.0
-    txt = str(v).strip().upper().replace('R$', '').replace(' ', '').replace('%', '')
-    try:
-        if ',' in txt and '.' in txt: txt = txt.replace('.', '').replace(',', '.')
-        elif ',' in txt: txt = txt.replace(',', '.')
-        return round(float(txt), 4)
-    except: return 0.0
+def processar_icms(df, writer, cod_cliente, df_entradas=pd.DataFrame()):
+    df_i = df.copy()
+    
+    # --- 1. CARREGAMENTO DO GABARITO (PASTA DE DADOS) ---
+    caminho_base = f"Bases_Tributárias/{cod_cliente}-Bases_Tributarias.xlsx"
+    base_gabarito = pd.DataFrame()
+    if os.path.exists(caminho_base):
+        try:
+            base_gabarito = pd.read_excel(caminho_base, dtype=str)
+            base_gabarito.columns = [str(c).upper().strip() for c in base_gabarito.columns]
+            if 'NCM' in base_gabarito.columns:
+                base_gabarito['NCM'] = base_gabarito['NCM'].str.replace(r'\D', '', regex=True).str.zfill(8)
+        except:
+            pass
 
-def buscar_tag_recursiva(tag_alvo, no):
-    if no is None: return ""
-    for elemento in no.iter():
-        if elemento.tag.split('}')[-1] == tag_alvo: return elemento.text if elemento.text else ""
-    return ""
-
-def processar_conteudo_xml(content, dados_lista, cnpj_alvo):
-    try:
-        xml_str = content.decode('utf-8', errors='replace')
-        xml_str = re.sub(r'\sxmlns(:\w+)?="[^"]+"', '', xml_str) 
-        root = ET.fromstring(xml_str)
-        inf = root.find('.//infNFe')
-        ide = root.find('.//ide'); emit = root.find('.//emit'); dest = root.find('.//dest')
-        cnpj_emit = re.sub(r'\D', '', buscar_tag_recursiva('CNPJ', emit))
-        tipo_op = "SAIDA" if (cnpj_emit == re.sub(r'\D', '', str(cnpj_alvo))) else "ENTRADA"
+    def audit_linha(r):
+        ncm = str(r.get('NCM', '')).strip().zfill(8)
+        cst_xml = str(r.get('CST-ICMS', '')).strip().zfill(2)
+        vlr_icms_xml = float(r.get('VLR-ICMS', 0.0))
+        bc_icms = float(r.get('BC-ICMS', 0.0))
         
-        for det in root.findall('.//det'):
-            prod = det.find('prod'); imp = det.find('imposto')
-            linha = {
-                "TIPO_SISTEMA": tipo_op, "CHAVE_ACESSO": inf.attrib.get('Id', '')[3:],
-                "NUM_NF": buscar_tag_recursiva('nNF', ide), "DATA_EMISSAO": buscar_tag_recursiva('dhEmi', ide),
-                "CNPJ_EMIT": cnpj_emit, "CNPJ_DEST": re.sub(r'\D', '', buscar_tag_recursiva('CNPJ', dest)),
-                "INDIEDEST": buscar_tag_recursiva('indIEDest', dest),
-                "UF_EMIT": buscar_tag_recursiva('UF', emit), "UF_DEST": buscar_tag_recursiva('UF', dest),
-                "CFOP": buscar_tag_recursiva('CFOP', prod), "NCM": buscar_tag_recursiva('NCM', prod),
-                "VPROD": safe_float(buscar_tag_recursiva('vProd', prod)),
-                "BC-ICMS": safe_float(buscar_tag_recursiva('vBC', det.find('.//ICMS'))),
-                "ALQ-ICMS": safe_float(buscar_tag_recursiva('pICMS', det.find('.//ICMS'))),
-                "VAL-DIFAL": safe_float(buscar_tag_recursiva('vICMSUFDest', imp)) + safe_float(buscar_tag_recursiva('vFCPUFDest', imp))
-            }
-            dados_lista.append(linha)
-    except: pass
+        # Valores Padrão (Caso não ache no gabarito)
+        cst_esp = "00"
+        alq_esp = 18.0
+        status_base = "Regra Geral (18%)"
 
-def extrair_dados_xml_recursivo(files, cnpj):
-    dados = []
-    for f in (files if isinstance(files, list) else [files]):
-        f.seek(0)
-        if f.name.endswith('.xml'): processar_conteudo_xml(f.read(), dados, cnpj)
-        elif f.name.endswith('.zip'):
-            with zipfile.ZipFile(f) as z:
-                for name in z.namelist():
-                    if name.endswith('.xml'): processar_conteudo_xml(z.read(name), dados, cnpj)
-    df = pd.DataFrame(dados)
-    return df[df['TIPO_SISTEMA']=="ENTRADA"].copy(), df[df['TIPO_SISTEMA']=="SAIDA"].copy()
+        # --- CONSULTA AO GABARITO ---
+        if not base_gabarito.empty and ncm in base_gabarito['NCM'].values:
+            g = base_gabarito[base_gabarito['NCM'] == ncm].iloc[0]
+            cst_esp = str(g.get('CST_INTERNA', '00')).strip().zfill(2)
+            alq_esp = float(g.get('ALIQ_INTERNA', 18.0))
+            status_base = "Localizado no Gabarito"
 
-def gerar_excel_final(df_xe, df_xs, ae, as_f, ge, gs, cod, regime, is_ret):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        if not df_xs.empty:
-            df_xs['Situação Nota'] = 'Autorizada'
-            processar_difal(df_xs, writer) # Chama o especialista da pasta Auditorias
-    return output.getvalue()
+        # --- CÁLCULOS ---
+        vlr_icms_devido = round(bc_icms * (alq_esp / 100), 2)
+        comp = max(0.0, round(vlr_icms_devido - vlr_icms_xml, 2))
+
+        # --- DIAGNÓSTICOS ---
+        diag_cst = "✅ OK" if cst_xml == cst_esp else f"❌ Erro (Esp: {cst_esp})"
+        diag_vlr = "✅ OK" if comp < 0.11 else f"❌ Faltou R$ {comp}"
+        
+        motivo = f"NCM {ncm} auditado com alíquota de {alq_esp}%."
+        if comp > 0:
+            motivo = f"Divergência: Alíquota esperada {alq_esp}% resultaria em R$ {vlr_icms_devido}."
+
+        return pd.Series([cst_esp, alq_esp, diag_cst, diag_vlr, status_base, comp, motivo])
+
+    # Executa a auditoria
+    df_i[COLUNAS_ANALISE] = df_i.apply(audit_linha, axis=1)
+
+    # --- ORGANIZAÇÃO FINAL (PADRÃO SENTINELA) ---
+    cols_xml = [c for c in df_i.columns if c != 'Situação Nota' and c not in COLUNAS_ANALISE]
+    col_status = ['Situação Nota'] if 'Situação Nota' in df_i.columns else []
+    
+    df_final = pd.concat([df_i[cols_xml], df_i[col_status], df_i[COLUNAS_ANALISE]], axis=1)
+    
+    # Gravação
+    df_final.to_excel(writer, sheet_name=NOME_ABA, index=False)
