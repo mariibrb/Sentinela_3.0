@@ -14,7 +14,7 @@ except ImportError as e:
 st.set_page_config(page_title="Sentinela 3.0 | Central de Fechamento", page_icon="🧡", layout="wide")
 aplicar_estilo_sentinela()
 
-# 3. FUNÇÃO DE CARREGAMENTO SIMPLES (CLIENTES ATIVOS)
+# 3. FUNÇÃO DE CARREGAMENTO (CLIENTES ATIVOS)
 def carregar_clientes_ativos():
     caminho_lista = "Clientes Ativos.xlsx"
     if os.path.exists(caminho_lista):
@@ -61,78 +61,86 @@ with st.sidebar:
             tipo_ipi = st.selectbox("Contribuinte de IPI?", ["Não", "Sim - Industrial", "Sim - Equiparada"])
             is_ipi = tipo_ipi != "Não"
 
-# 6. CORPO DA PÁGINA (ABAS SEPARADAS POR TRIBUTO)
+# 6. CORPO DA PÁGINA (ABAS ORGANIZADAS)
 if empresa_ok and (regime_ok if 'regime_ok' in locals() else False):
     st.markdown("### 📂 Auditoria e Conferência Domínio")
     
-    # Abas agora totalmente separadas conforme seu pedido
     tabs = st.tabs([
-        "📦 XMLs (Origem)", 
-        "🔹 ICMS Próprio", 
-        "🏭 IPI", 
-        "🛡️ ST (Subst. Tributária)",
-        "💰 PIS/COFINS", 
+        "📦 XMLs e Gerenciais (Origem)", 
+        "🛡️ ICMS / IPI", 
+        "🔒 ST (Subst. Tributária)",
+        "💰 PIS / COFINS", 
         "🚛 DIFAL", 
         "🏢 RET"
     ])
     
     with tabs[0]:
-        st.markdown("#### Upload dos XMLs (Base para tudo)")
+        st.markdown("#### Origem: Confronto XML vs Gerencial do Cliente")
         if 'reset_xml' not in st.session_state: st.session_state.reset_xml = 0
-        xmls = st.file_uploader("Upload XMLs/ZIP", type=['zip', 'xml'], accept_multiple_files=True, key=f"xml_{st.session_state.reset_xml}")
-        if xmls and st.button("🗑️ Limpar XMLs"):
+        col_xml1, col_xml2 = st.columns(2)
+        with col_xml1:
+            xmls = st.file_uploader("Upload XMLs/ZIP (Transmitido)", type=['zip', 'xml'], accept_multiple_files=True, key=f"xml_{st.session_state.reset_xml}")
+        with col_xml2:
+            ge_cli = st.file_uploader("Gerencial Entradas (Sistema Cliente)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            gs_cli = st.file_uploader("Gerencial Saídas (Sistema Cliente)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+        if xmls and st.button("🗑️ Limpar Arquivos de Origem"):
             st.session_state.reset_xml += 1; st.rerun()
 
     with tabs[1]:
-        st.markdown("#### Domínio: ICMS Próprio")
-        gs_icms = st.file_uploader("Gerencial Saídas (ICMS)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-        ge_icms = st.file_uploader("Gerencial Entradas (ICMS)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+        st.markdown("#### Domínio: ICMS Próprio e IPI")
+        gs_icms_ipi = st.file_uploader("Gerencial Saídas (Domínio - ICMS/IPI)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+        ge_icms_ipi = st.file_uploader("Gerencial Entradas (Domínio - ICMS/IPI)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
 
     with tabs[2]:
-        if is_ipi:
-            st.markdown("#### Domínio: IPI")
-            gs_ipi = st.file_uploader("Gerencial Saídas (IPI)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-            ge_ipi = st.file_uploader("Gerencial Entradas (IPI)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-        else:
-            st.warning("Habilite o Módulo IPI no menu lateral.")
-            gs_ipi, ge_ipi = None, None
+        st.markdown("#### Domínio: Substituição Tributária (ST)")
+        gs_st = st.file_uploader("Gerencial Saídas (Domínio - ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+        ge_st = st.file_uploader("Gerencial Entradas (Domínio - ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
 
     with tabs[3]:
-        st.markdown("#### Domínio: ST (Substituição Tributária)")
-        gs_st = st.file_uploader("Gerencial Saídas (ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-        ge_st = st.file_uploader("Gerencial Entradas (ST)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+        st.markdown("#### Domínio: PIS / COFINS")
+        col_pc1, col_pc2 = st.columns(2)
+        with col_pc1:
+            rel_pc = st.file_uploader("Relatório de Apuração PIS/COFINS", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+        with col_pc2:
+            gs_pc = st.file_uploader("Gerencial Saídas (Domínio - PIS/COFINS)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            ge_pc = st.file_uploader("Gerencial Entradas (Domínio - PIS/COFINS)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
 
     with tabs[4]:
-        st.markdown("#### Domínio: PIS/COFINS")
-        rel_pc = st.file_uploader("Relatório PIS/COFINS (Domínio)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
-
-    with tabs[5]:
         st.markdown("#### Domínio: DIFAL")
         rel_difal = st.file_uploader("Relatório DIFAL (Domínio)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
 
-    with tabs[6]:
+    with tabs[5]:
         if is_ret:
             st.markdown("#### Domínio: RET")
-            rel_ret = st.file_uploader("Relatório RET (Domínio)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            col_ret1, col_ret2 = st.columns(2)
+            with col_ret1:
+                rel_ret = st.file_uploader("Relatório de Apuração RET", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+            with col_ret2:
+                gs_ret = st.file_uploader("Gerencial Saídas (Domínio - RET)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
+                ge_ret = st.file_uploader("Gerencial Entradas (Domínio - RET)", type=['csv', 'txt', 'xlsx'], accept_multiple_files=True)
         else:
             st.warning("Habilite o Módulo RET no menu lateral.")
-            rel_ret = None
+            rel_ret, gs_ret, ge_ret = None, None, None
 
     # 7. EXECUÇÃO
     st.markdown("---")
     if st.button("🚀 EXECUTAR CONFERÊNCIA COMPLETA", use_container_width=True):
         if xmls:
-            with st.spinner("Confrontando XMLs vs Relatórios da Domínio..."):
+            with st.spinner("Cruzando XMLs vs Gerenciais Cliente vs Domínio..."):
                 try:
                     df_ent, df_sai = extrair_dados_xml_recursivo(xmls, cnpj_auditado)
-                    # O Motor agora recebe os arquivos de cada aba separadamente
+                    # O Motor agora recebe todos os gerenciais separados por tributo
                     relatorio = gerar_excel_final(
-                        df_ent, df_sai, gs_icms, ge_icms, gs_ipi, ge_ipi, 
-                        gs_st, ge_st, rel_pc, rel_difal, rel_ret, 
+                        df_ent, df_sai, ge_cli, gs_cli,           # Origem
+                        gs_icms_ipi, ge_icms_ipi,               # ICMS/IPI
+                        gs_st, ge_st,                           # ST
+                        rel_pc, gs_pc, ge_pc,                   # PIS/COFINS
+                        rel_difal,                              # DIFAL
+                        rel_ret, gs_ret, ge_ret,                # RET
                         cod_cliente, escolha_reg, is_ret, is_ipi
                     )
                     st.success("✅ Relatório gerado com sucesso!")
                     st.download_button("💾 BAIXAR SENTINELA", data=relatorio, file_name=f"SENTINELA_{cod_cliente}.xlsx", use_container_width=True)
                 except Exception as e: st.error(f"Erro: {e}")
         else:
-            st.warning("⚠️ Você precisa carregar os XMLs na primeira aba.")
+            st.warning("⚠️ Carregue os XMLs na primeira aba para iniciar.")
